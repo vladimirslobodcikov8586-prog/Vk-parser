@@ -1,78 +1,71 @@
+
 import os
 import time
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import requests
 
-# Сервер сам подтянет ключи из настроек безопасным образом
+# 1. Мини-веб-сервер для Render (чтобы Web Service не падал)
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html; charset=utf-8')
+        self.end_headers()
+        self.wfile.write('Бот VK Parser успешно работает 24/7!'.encode('utf-8'))
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    server.serve_forever()
+
+# Запускаем веб-сервер в отдельном потоке
+threading.Thread(target=run_web_server, daemon=True).start()
+
+# 2. Основной код парсера VK
 VK_TOKEN = os.environ.get("VK_TOKEN")
 TG_TOKEN = os.environ.get("TG_TOKEN")
 TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
 
-# Список групп VK (указывайте короткие имена после vk.com/)
-GROUPS = [
-    "durov",
-    "ria",
-    "kinopoisk"
-]
-
-# Проверка каждые 5 минут (300 секунд)
-CHECK_INTERVAL = 300
-
-last_seen_posts = {group: None for group in GROUPS}
+GROUPS = ["durov", "ria", "kinopoisk"]  # Впишите сюда короткие имена ваших групп VK
+CHECK_INTERVAL = 300  # Проверка каждые 5 минут
 
 def send_telegram(text):
+    if not TG_TOKEN or not TG_CHAT_ID:
+        return
     url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TG_CHAT_ID,
-        "text": text,
-        "parse_mode": "HTML",
-        "disable_web_page_preview": False
-    }
+    payload = {"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "HTML"}
     try:
-        requests.post(url, json=payload, timeout=10)
+        requests.post(url, json=payload)
     except Exception as e:
-        print(f"Ошибка TG: {e}")
+        print(f"Ошибка отправки в TG: {e}")
 
-def check_vk():
-    print("Проверка обновлений в VK...")
-    for group in GROUPS:
-        url = "https://api.vk.com/method/wall.get"
-        params = {
-            "domain": group,
-            "count": 2,
-            "access_token": VK_TOKEN,
-            "v": "5.131"
-        }
-        try:
-            res = requests.get(url, params=params, timeout=10).json()
-            if "response" in res and res["response"]["items"]:
-                items = res["response"]["items"]
-                post = items[0]
-                if post.get("is_pinned") and len(items) > 1:
-                    post = items[1]
-                
-                post_id = post["id"]
-                owner_id = post["owner_id"]
-                
-                if last_seen_posts[group] is None:
-                    last_seen_posts[group] = post_id
-                    continue
-                
-                if post_id > last_seen_posts[group]:
-                    last_seen_posts[group] = post_id
-                    text = post.get("text", "Новый пост без текста (медиа)")
-                    post_url = f"https://vk.com/wall{owner_id}_{post_id}"
+# Сообщение о старте
+send_telegram("🚀 Парсер VK успешно запущен и работает на Render!")
+
+last_seen_ids = {}
+
+while True:
+    try:
+        for group in GROUPS:
+            url = f"https://api.vk.com/method/wall.get?domain={group}&count=2&access_token={VK_TOKEN}&v=5.131"
+            res = requests.get(url).json()
+            
+            if "response" in res and "items" in res["response"]:
+                posts = res["response"]["items"]
+                for post in posts:
+                    # Пропускаем закрепленные посты при первом запуске
+                    post_id = post["id"]
+                    if group not in last_seen_ids:
+                        last_seen_ids[group] = post_id
+                        continue
                     
-                    msg = (
-                        f"🔔 <b>Новый пост в {group}!</b>\n\n"
-                        f"{text[:600]}\n\n"
-                        f"🔗 <a href='{post_url}'>Открыть в VK</a>"
-                    )
-                    send_telegram(msg)
-        except Exception as e:
-            print(f"Ошибка проверки {group}: {e}")
-
-if __name__ == "__main__":
-    send_telegram("🚀 <b>Серверный парсер VK успешно запущен на Render!</b>")
-    while True:
-        check_vk()
-        time.sleep(CHECK_INTERVAL)
+                    if post_id > last_seen_ids[group]:
+                        last_seen_ids[group] = post_id
+                        text = post.get("text", "")
+                        post_url = f"https://vk.com/{group}?w=wall{post['owner_id']}_{post_id}"
+                        msg = f"🔔 <b>Новый пост в {group}!</b>\n\n{text[:500]}...\n\n🔗 <a href='{post_url}'>Читать в VK</a>"
+                        send_telegram(msg)
+    except Exception as e:
+        print(f"Ошибка при парсинге: {e}")
+        
+    time.sleep(CHECK_INTERVAL)
