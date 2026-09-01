@@ -1,4 +1,3 @@
-
 import os
 import time
 import json
@@ -6,7 +5,6 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import requests
 
-# Отключаем буферизацию на уровне Python-скрипта
 os.environ["PYTHONUNBUFFERED"] = "1"
 
 JSONBIN_BIN_ID = os.environ.get("JSONBIN_BIN_ID")
@@ -15,40 +13,27 @@ JSONBIN_API_KEY = os.environ.get("JSONBIN_API_KEY")
 DEFAULT_GROUPS = ["durov", "ria", "kinopoisk"]
 
 def load_groups():
-    print("=== ПРОВЕРКА КЛЮЧЕЙ ===")
-    print("BIN_ID:", JSONBIN_BIN_ID)
-    print("API_KEY:", "Задан" if JSONBIN_API_KEY else "ОТСУТСТВУЕТ")
-    
     if not JSONBIN_BIN_ID or not JSONBIN_API_KEY:
-        print("⚠️ Ключи JSONBin не найдены в переменном окружении Render. Загружаем дефолт.")
         return list(DEFAULT_GROUPS)
     
     url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}/latest"
     headers = {"X-Master-Key": JSONBIN_API_KEY}
     try:
         res = requests.get(url, headers=headers, timeout=7)
-        print(f"Запрос к JSONBin при запуске. Статус: {res.status_code}")
         if res.status_code == 200:
             data = res.json()
             record = data.get("record")
             if isinstance(record, list):
-                print("Успешно загружен список групп из JSONBin:", record)
                 return record
             elif isinstance(record, dict) and "groups" in record:
-                print("Успешно загружен список групп из JSONBin (dict):", record["groups"])
                 return record["groups"]
-            else:
-                print("JSONBin вернул неожиданный формат:", record)
-        else:
-            print("Ошибка чтения JSONBin:", res.text)
     except Exception as e:
-        print("Исключение при обращении к JSONBin:", e)
+        print("Ошибка загрузки групп:", e)
         
     return list(DEFAULT_GROUPS)
 
 def save_groups(groups):
     if not JSONBIN_BIN_ID or not JSONBIN_API_KEY:
-        print("⚠️ Сохранение пропущено: отсутствуют ключи JSONBin.")
         return
     
     url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}"
@@ -57,10 +42,9 @@ def save_groups(groups):
         "X-Master-Key": JSONBIN_API_KEY
     }
     try:
-        res = requests.put(url, headers=headers, json=groups, timeout=7)
-        print(f"Результат сохранения в JSONBin: HTTP {res.status_code}")
+        requests.put(url, headers=headers, json=groups, timeout=7)
     except Exception as e:
-        print("Ошибка сохранения в JSONBin:", e)
+        print("Ошибка сохранения групп:", e)
 
 GROUPS = load_groups()
 
@@ -147,15 +131,87 @@ TG_TOKEN = os.environ.get("TG_TOKEN")
 TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
 CHECK_INTERVAL = 300
 
-def send_telegram(text):
+def send_telegram_post(text, photos, video_links):
     if not TG_TOKEN or not TG_CHAT_ID:
         return
-    url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
-    payload = {"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "HTML"}
+
+    # Добавляем ссылки на видео в текст поста, если они есть
+    if video_links:
+        text += "\n\n🎬 <b>Видео в посте:</b>\n" + "\n".join(video_links)
+
+    # Ограничение Telegram на длину подписи под фото — 1024 символа
+    caption = text[:1000] + ("..." if len(text) > 1000 else "")
+
     try:
-        requests.post(url, json=payload)
-    except Exception:
-        pass
+        if len(photos) == 1:
+            # Одно фото с подписью
+            url = f"https://api.telegram.org/bot{TG_TOKEN}/sendPhoto"
+            payload = {
+                "chat_id": TG_CHAT_ID,
+                "photo": photos[0],
+                "caption": caption,
+                "parse_mode": "HTML"
+            }
+            requests.post(url, json=payload, timeout=10)
+        
+        elif len(photos) > 1:
+            # Альбом фотографий (до 10 штук)
+            url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMediaGroup"
+            media = []
+            for idx, photo_url in enumerate(photos[:10]):
+                item = {"type": "photo", "media": photo_url}
+                if idx == 0:
+                    item["caption"] = caption
+                    item["parse_mode"] = "HTML"
+                media.append(item)
+            
+            payload = {"chat_id": TG_CHAT_ID, "media": media}
+            requests.post(url, json=payload, timeout=10)
+        
+        else:
+            # Обычный текст без фото
+            url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
+            payload = {
+                "chat_id": TG_CHAT_ID,
+                "text": text[:4000],
+                "parse_mode": "HTML",
+                "disable_web_page_preview": False
+            }
+            requests.post(url, json=payload, timeout=10)
+    except Exception as e:
+        print("Ошибка отправки в Telegram:", e)
+
+def extract_attachments(attachments_data):
+    photos = []
+    video_links = []
+    
+    for att in attachments_data:
+        att_type = att.get("type")
+        
+        if att_type == "photo":
+            # Выбираем максимальное качество изображения
+            sizes = att["photo"].get("sizes", [])
+            if sizes:
+                # Сортируем по ширине/высоте
+                best_size = max(sizes, key=lambda s: s.get("width", 0) * s.get("height", 0))
+                photos.append(best_size["url"])
+                
+        elif att_type == "video":
+            video_info = att["video"]
+            owner_id = video_info.get("owner_id")
+            video_id = video_info.get("id")
+            title = video_info.get("title", "Смотреть видео")
+            if owner_id and video_id:
+                v_url = f"https://vk.com/video{owner_id}_{video_id}"
+                video_links.append(f"• <a href='{v_url}'>{title}</a>")
+                
+                # Если у видео есть обложка и пока нет обычных фото, возьмем её
+                image_sizes = video_info.get("image", [])
+                if image_sizes and not photos:
+                    best_img = max(image_sizes, key=lambda i: i.get("width", 0))
+                    photos.append(best_img["url"])
+
+    return photos, video_links
 
 last_seen_ids = {}
 
@@ -167,7 +223,7 @@ while True:
                 break
                 
             url = f"https://api.vk.com/method/wall.get?domain={group}&count=2&access_token={VK_TOKEN}&v=5.131"
-            res = requests.get(url).json()
+            res = requests.get(url, timeout=10).json()
             
             if "response" in res and "items" in res["response"]:
                 posts = res["response"]["items"]
@@ -179,11 +235,17 @@ while True:
                     
                     if post_id > last_seen_ids[group]:
                         last_seen_ids[group] = post_id
-                        text = post.get("text", "")
+                        
+                        raw_text = post.get("text", "")
                         post_url = f"https://vk.com/{group}?w=wall{post['owner_id']}_{post_id}"
-                        msg = f"🔔 <b>Новый пост в {group}!</b>\n\n{text[:500]}...\n\n🔗 <a href='{post_url}'>Читать в VK</a>"
-                        send_telegram(msg)
-    except Exception:
-        pass
+                        
+                        main_text = f"🔔 <b>Новый пост в {group}!</b>\n\n{raw_text}\n\n🔗 <a href='{post_url}'>Источник в VK</a>"
+                        
+                        attachments = post.get("attachments", [])
+                        photos, video_links = extract_attachments(attachments)
+                        
+                        send_telegram_post(main_text, photos, video_links)
+    except Exception as e:
+        print("Ошибка в цикле парсера:", e)
         
     time.sleep(CHECK_INTERVAL)
