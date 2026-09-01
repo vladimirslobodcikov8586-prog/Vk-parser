@@ -6,7 +6,6 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import requests
 
-# Загружаем ключи из переменных окружения Render
 JSONBIN_BIN_ID = os.environ.get("JSONBIN_BIN_ID")
 JSONBIN_API_KEY = os.environ.get("JSONBIN_API_KEY")
 
@@ -14,20 +13,34 @@ DEFAULT_GROUPS = ["durov", "ria", "kinopoisk"]
 
 def load_groups():
     if not JSONBIN_BIN_ID or not JSONBIN_API_KEY:
-        return DEFAULT_GROUPS
+        print("⚠️ ОШИБКА: JSONBIN_BIN_ID или JSONBIN_API_KEY не заданы в Environment на Render!")
+        return list(DEFAULT_GROUPS)
     
     url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}/latest"
     headers = {"X-Master-Key": JSONBIN_API_KEY}
     try:
         res = requests.get(url, headers=headers, timeout=5)
+        print("Статус ответа JSONBin при загрузке:", res.status_code)
         if res.status_code == 200:
-            return res.json().get("record", DEFAULT_GROUPS)
+            data = res.json()
+            record = data.get("record")
+            if isinstance(record, list):
+                print("Успешно загружены группы из JSONBin:", record)
+                return record
+            elif isinstance(record, dict) and "groups" in record:
+                print("Успешно загружены группы из JSONBin:", record["groups"])
+                return record["groups"]
+            else:
+                print("Неизвестный формат данных в JSONBin:", record)
+        else:
+            print("Ошибка JSONBin:", res.text)
     except Exception as e:
-        print("Ошибка загрузки из JSONBin:", e)
-    return DEFAULT_GROUPS
+        print("Исключение при загрузке из JSONBin:", e)
+    return list(DEFAULT_GROUPS)
 
 def save_groups(groups):
     if not JSONBIN_BIN_ID or not JSONBIN_API_KEY:
+        print("⚠️ Не удалось сохранить: ключи JSONBin отсутствуют!")
         return
     
     url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}"
@@ -36,7 +49,8 @@ def save_groups(groups):
         "X-Master-Key": JSONBIN_API_KEY
     }
     try:
-        requests.put(url, headers=headers, json=groups, timeout=5)
+        res = requests.put(url, headers=headers, json=groups, timeout=5)
+        print("Результат сохранения в JSONBin (код):", res.status_code)
     except Exception as e:
         print("Ошибка сохранения в JSONBin:", e)
 
