@@ -8,7 +8,6 @@ import requests
 
 GROUPS_FILE = "groups.json"
 
-# Загрузка и сохранение списка групп
 def load_groups():
     if os.path.exists(GROUPS_FILE):
         try:
@@ -24,14 +23,12 @@ def save_groups(groups):
 
 GROUPS = load_groups()
 
-# Веб-сервер с обработкой добавления групп из VK Feed Pulse
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def _set_headers(self, status=200):
         self.send_response(status)
         self.send_header('Content-type', 'application/json; charset=utf-8')
-        # Разрешаем CORS-запросы из браузера
         self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
@@ -61,14 +58,12 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                 data = json.loads(post_data.decode('utf-8'))
                 new_group = data.get("group", "").strip().lower()
                 
-                # Очищаем от ссылок, если вставили полное URL
                 if "vk.com/" in new_group:
                     new_group = new_group.split("vk.com/")[-1].strip("/")
 
                 if new_group and new_group not in GROUPS:
                     GROUPS.append(new_group)
                     save_groups(GROUPS)
-                    print(f"Добавлена новая группа: {new_group}", flush=True)
                     self._set_headers(200)
                     self.wfile.write(json.dumps({"status": "ok", "groups": GROUPS}).encode('utf-8'))
                 else:
@@ -78,15 +73,34 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                 self._set_headers(500)
                 self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
+    def do_DELETE(self):
+        global GROUPS
+        if self.path == "/api/groups":
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode('utf-8'))
+                target_group = data.get("group", "").strip().lower()
+                
+                if target_group in GROUPS:
+                    GROUPS.remove(target_group)
+                    save_groups(GROUPS)
+                    self._set_headers(200)
+                    self.wfile.write(json.dumps({"status": "deleted", "groups": GROUPS}).encode('utf-8'))
+                else:
+                    self._set_headers(404)
+                    self.wfile.write(json.dumps({"status": "not_found"}).encode('utf-8'))
+            except Exception as e:
+                self._set_headers(500)
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
-    print(f"Сервер запущен на порту {port}", flush=True)
     server.serve_forever()
 
 threading.Thread(target=run_web_server, daemon=True).start()
 
-# Переменные окружения
 VK_TOKEN = os.environ.get("VK_TOKEN")
 TG_TOKEN = os.environ.get("TG_TOKEN")
 TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
@@ -100,9 +114,7 @@ def send_telegram(text):
     try:
         requests.post(url, json=payload)
     except Exception as e:
-        print(f"Ошибка отправки в TG: {e}", flush=True)
-
-send_telegram("🚀 Сервер обновлён! Поддержка VK Feed Pulse подключена.")
+        pass
 
 last_seen_ids = {}
 
@@ -130,7 +142,7 @@ while True:
                         post_url = f"https://vk.com/{group}?w=wall{post['owner_id']}_{post_id}"
                         msg = f"🔔 <b>Новый пост в {group}!</b>\n\n{text[:500]}...\n\n🔗 <a href='{post_url}'>Читать в VK</a>"
                         send_telegram(msg)
-    except Exception as e:
-        print(f"Ошибка при парсинге: {e}", flush=True)
+    except Exception:
+        pass
         
     time.sleep(CHECK_INTERVAL)
