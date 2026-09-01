@@ -6,41 +6,49 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import requests
 
+# Отключаем буферизацию на уровне Python-скрипта
+os.environ["PYTHONUNBUFFERED"] = "1"
+
 JSONBIN_BIN_ID = os.environ.get("JSONBIN_BIN_ID")
 JSONBIN_API_KEY = os.environ.get("JSONBIN_API_KEY")
 
 DEFAULT_GROUPS = ["durov", "ria", "kinopoisk"]
 
 def load_groups():
+    print("=== ПРОВЕРКА КЛЮЧЕЙ ===")
+    print("BIN_ID:", JSONBIN_BIN_ID)
+    print("API_KEY:", "Задан" if JSONBIN_API_KEY else "ОТСУТСТВУЕТ")
+    
     if not JSONBIN_BIN_ID or not JSONBIN_API_KEY:
-        print("⚠️ ОШИБКА: JSONBIN_BIN_ID или JSONBIN_API_KEY не заданы в Environment на Render!")
+        print("⚠️ Ключи JSONBin не найдены в переменном окружении Render. Загружаем дефолт.")
         return list(DEFAULT_GROUPS)
     
     url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}/latest"
     headers = {"X-Master-Key": JSONBIN_API_KEY}
     try:
-        res = requests.get(url, headers=headers, timeout=5)
-        print("Статус ответа JSONBin при загрузке:", res.status_code)
+        res = requests.get(url, headers=headers, timeout=7)
+        print(f"Запрос к JSONBin при запуске. Статус: {res.status_code}")
         if res.status_code == 200:
             data = res.json()
             record = data.get("record")
             if isinstance(record, list):
-                print("Успешно загружены группы из JSONBin:", record)
+                print("Успешно загружен список групп из JSONBin:", record)
                 return record
             elif isinstance(record, dict) and "groups" in record:
-                print("Успешно загружены группы из JSONBin:", record["groups"])
+                print("Успешно загружен список групп из JSONBin (dict):", record["groups"])
                 return record["groups"]
             else:
-                print("Неизвестный формат данных в JSONBin:", record)
+                print("JSONBin вернул неожиданный формат:", record)
         else:
-            print("Ошибка JSONBin:", res.text)
+            print("Ошибка чтения JSONBin:", res.text)
     except Exception as e:
-        print("Исключение при загрузке из JSONBin:", e)
+        print("Исключение при обращении к JSONBin:", e)
+        
     return list(DEFAULT_GROUPS)
 
 def save_groups(groups):
     if not JSONBIN_BIN_ID or not JSONBIN_API_KEY:
-        print("⚠️ Не удалось сохранить: ключи JSONBin отсутствуют!")
+        print("⚠️ Сохранение пропущено: отсутствуют ключи JSONBin.")
         return
     
     url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}"
@@ -49,8 +57,8 @@ def save_groups(groups):
         "X-Master-Key": JSONBIN_API_KEY
     }
     try:
-        res = requests.put(url, headers=headers, json=groups, timeout=5)
-        print("Результат сохранения в JSONBin (код):", res.status_code)
+        res = requests.put(url, headers=headers, json=groups, timeout=7)
+        print(f"Результат сохранения в JSONBin: HTTP {res.status_code}")
     except Exception as e:
         print("Ошибка сохранения в JSONBin:", e)
 
@@ -76,7 +84,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type', 'text/html; charset=utf-8')
             self.end_headers()
-            self.wfile.write('Бот VK Parser и VK Feed Pulse работают 24/7!'.encode('utf-8'))
+            self.wfile.write('Бот VK Parser работает!'.encode('utf-8'))
 
     def do_HEAD(self):
         self.send_response(200)
@@ -146,7 +154,7 @@ def send_telegram(text):
     payload = {"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "HTML"}
     try:
         requests.post(url, json=payload)
-    except Exception as e:
+    except Exception:
         pass
 
 last_seen_ids = {}
