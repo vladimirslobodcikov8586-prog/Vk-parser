@@ -1,16 +1,18 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Панель управления VK Parser</title>
+    <title>VK Feed Pulse — Панель управления</title>
     <style>
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
+
         body {
             background-color: #0f172a;
             color: #f8fafc;
@@ -20,70 +22,144 @@
             min-height: 100vh;
             padding: 20px;
         }
+
         .card {
             background-color: #1e293b;
-            border-radius: 16px;
-            padding: 24px;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
             border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 32px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
         }
+
         .header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
+            gap: 12px;
+            margin-bottom: 24px;
         }
-        .title {
-            font-size: 20px;
-            font-weight: 700;
-        }
-        .status-badge {
-            background-color: #059669;
-            color: #ecfdf5;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
+
+        .header-icon {
+            width: 40px;
+            height: 40px;
+            background: #3b82f6;
+            border-radius: 10px;
             display: flex;
             align-items: center;
-            gap: 6px;
+            justify-content: center;
+            font-size: 20px;
         }
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background-color: #34d399;
-            border-radius: 50%;
+
+        h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
         }
-        .info-box {
-            background-color: #0f172a;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 20px;
-            font-size: 14px;
+
+        .status-badge {
+            font-size: 0.75rem;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.1);
+            padding: 2px 8px;
+            border-radius: 12px;
+            display: inline-block;
+            margin-top: 2px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        label {
+            font-size: 0.875rem;
             color: #94a3b8;
         }
-        .btn {
-            width: 100%;
-            padding: 12px;
-            border: none;
+
+        input {
+            background-color: #0f172a;
+            border: 1px solid #334155;
             border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: opacity 0.2s;
-            margin-bottom: 10px;
+            padding: 12px 16px;
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
         }
-        .btn:hover {
-            opacity: 0.9;
+
+        input:focus {
+            border-color: #3b82f6;
         }
-        .btn-primary {
+
+        button {
             background-color: #2563eb;
             color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, opacity 0.2s;
         }
-        .btn-secondary {
+
+        button:hover {
+            background-color: #1d4ed8;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .message {
+            margin-top: 12px;
+            font-size: 0.875rem;
+            padding: 10px;
+            border-radius: 6px;
+            display: none;
+        }
+
+        .message.success {
+            display: block;
+            background-color: rgba(34, 197, 94, 0.1);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .message.error {
+            display: block;
+            background-color: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .groups-section {
+            border-top: 1px solid #334155;
+            padding-top: 20px;
+        }
+
+        .groups-title {
+            font-size: 0.875rem;
+            color: #94a3b8;
+            margin-bottom: 12px;
+        }
+
+        .groups-list {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .group-tag {
             background-color: #334155;
-            color: #f8fafc;
+            color: #e2e8f0;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
         }
     </style>
 </head>
@@ -91,20 +167,107 @@
 
 <div class="card">
     <div class="header">
-        <div class="title">VK Parser Bot</div>
-        <div class="status-badge">
-            <span class="status-dot"></span> Активен
+        <div class="header-icon">📡</div>
+        <div>
+            <h1>VK Feed Pulse</h1>
+            <span class="status-badge">Render Server Live</span>
         </div>
     </div>
 
-    <div class="info-box">
-        Сервис работает 24/7 на Render.<br>
-        Отправка уведомлений: Telegram.
+    <div class="input-group">
+        <label for="groupInput">Ссылка или короткое имя группы VK:</label>
+        <input type="text" id="groupInput" placeholder="например: durov или vk.com/ria">
+        <button id="addBtn" onclick="sendGroup()">Добавить в парсер</button>
     </div>
 
-    <button class="btn btn-primary" onclick="alert('Парсинг запущен вручную!')">Принудительный запуск</button>
-    <button class="btn btn-secondary" onclick="location.reload()">Обновить статус</button>
+    <div id="statusMessage" class="message"></div>
+
+    <div class="groups-section">
+        <div class="groups-title">Отслеживаемые паблики:</div>
+        <ul id="groupsList" class="groups-list">
+            <li class="group-tag">Загрузка...</li>
+        </ul>
+    </div>
 </div>
+
+<script>
+    // Ваш рабочий URL на Render
+    const SERVER_URL = "https://vk-parser-xhkd.onrender.com/api/groups";
+
+    // Автоматическая загрузка текущего списка при старте страницы
+    async function loadCurrentGroups() {
+        try {
+            const response = await fetch(SERVER_URL);
+            if (response.ok) {
+                const data = await response.json();
+                renderGroups(data.groups);
+            }
+        } catch (err) {
+            console.error("Ошибка подключения к серверу Render:", err);
+            document.getElementById("groupsList").innerHTML = '<li class="group-tag" style="color: #f87171;">Ошибка сети</li>';
+        }
+    }
+
+    // Отображение тегов с группами
+    function renderGroups(groups) {
+        const listEl = document.getElementById("groupsList");
+        if (!groups || groups.length === 0) {
+            listEl.innerHTML = '<li class="group-tag">Список пуст</li>';
+            return;
+        }
+        listEl.innerHTML = groups.map(g => `<li class="group-tag">vk.com/${g}</li>`).join('');
+    }
+
+    // Отправка новой группы
+    async function sendGroup() {
+        const input = document.getElementById("groupInput");
+        const btn = document.getElementById("addBtn");
+        const msg = document.getElementById("statusMessage");
+        const groupValue = input.value.trim();
+
+        if (!groupValue) {
+            showMessage("Введите имя или ссылку группы", "error");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = "Отправка...";
+        msg.className = "message";
+
+        try {
+            const response = await fetch(SERVER_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ group: groupValue })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.status === "ok") {
+                showMessage("Группа успешно добавлена!", "success");
+                input.value = "";
+                renderGroups(result.groups);
+            } else {
+                showMessage("Группа уже есть в списке или неверный запрос", "error");
+            }
+        } catch (err) {
+            showMessage("Ошибка связи с сервером Render", "error");
+            console.error(err);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Добавить в парсер";
+        }
+    }
+
+    function showMessage(text, type) {
+        const msg = document.getElementById("statusMessage");
+        msg.innerText = text;
+        msg.className = `message ${type}`;
+    }
+
+    // Запускаем получение списка при загрузке
+    loadCurrentGroups();
+</script>
 
 </body>
 </html>
