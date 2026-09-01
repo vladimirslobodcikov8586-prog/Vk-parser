@@ -10,41 +10,47 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
         body {
-            background-color: #0f172a;
+            background-color: #0b0f19;
             color: #f8fafc;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            padding: 20px;
+            padding: 16px;
         }
 
         .card {
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 16px;
-            padding: 32px;
+            background-color: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 20px;
+            padding: 24px;
             width: 100%;
-            max-width: 480px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            max-width: 440px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
         }
 
         .header {
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
             gap: 12px;
-            margin-bottom: 24px;
         }
 
         .header-icon {
-            width: 40px;
-            height: 40px;
-            background: #3b82f6;
-            border-radius: 10px;
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -52,114 +58,118 @@
         }
 
         h1 {
-            font-size: 1.25rem;
+            font-size: 1.15rem;
             font-weight: 700;
         }
 
         .status-badge {
-            font-size: 0.75rem;
-            color: #38bdf8;
-            background: rgba(56, 189, 248, 0.1);
-            padding: 2px 8px;
-            border-radius: 12px;
+            font-size: 0.7rem;
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+            padding: 3px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
             display: inline-block;
-            margin-top: 2px;
         }
 
-        .input-group {
+        .input-box {
             display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 24px;
-        }
-
-        label {
-            font-size: 0.875rem;
-            color: #94a3b8;
+            gap: 8px;
+            margin-bottom: 16px;
         }
 
         input {
-            background-color: #0f172a;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 12px 16px;
+            flex: 1;
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 10px;
+            padding: 12px 14px;
             color: #fff;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             outline: none;
-            transition: border-color 0.2s;
         }
 
         input:focus {
             border-color: #3b82f6;
         }
 
-        button {
+        .btn-add {
             background-color: #2563eb;
             color: white;
             border: none;
-            border-radius: 8px;
-            padding: 12px;
-            font-size: 0.95rem;
+            border-radius: 10px;
+            padding: 0 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.2s, opacity 0.2s;
-        }
-
-        button:hover {
-            background-color: #1d4ed8;
-        }
-
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
+            white-space: nowrap;
         }
 
         .message {
-            margin-top: 12px;
-            font-size: 0.875rem;
-            padding: 10px;
-            border-radius: 6px;
+            font-size: 0.8rem;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
             display: none;
         }
 
-        .message.success {
-            display: block;
-            background-color: rgba(34, 197, 94, 0.1);
-            color: #4ade80;
-            border: 1px solid rgba(34, 197, 94, 0.2);
-        }
+        .message.success { display: block; background: rgba(34, 197, 94, 0.1); color: #4ade80; }
+        .message.error { display: block; background: rgba(239, 68, 68, 0.1); color: #f87171; }
 
-        .message.error {
-            display: block;
-            background-color: rgba(239, 68, 68, 0.1);
-            color: #f87171;
-            border: 1px solid rgba(239, 68, 68, 0.2);
-        }
-
-        .groups-section {
-            border-top: 1px solid #334155;
-            padding-top: 20px;
-        }
-
-        .groups-title {
-            font-size: 0.875rem;
-            color: #94a3b8;
+        .groups-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: #9ca3af;
             margin-bottom: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #1f2937;
         }
 
         .groups-list {
             list-style: none;
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 8px;
+            max-height: 280px;
+            overflow-y: auto;
         }
 
-        .group-tag {
-            background-color: #334155;
-            color: #e2e8f0;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
+        .group-item {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 10px;
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .group-link {
+            color: #60a5fa;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .btn-del {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: none;
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-del:hover {
+            background: rgba(239, 68, 68, 0.3);
         }
     </style>
 </head>
@@ -167,34 +177,35 @@
 
 <div class="card">
     <div class="header">
-        <div class="header-icon">📡</div>
-        <div>
-            <h1>VK Feed Pulse</h1>
-            <span class="status-badge">Render Server Live</span>
+        <div class="brand">
+            <div class="header-icon">📡</div>
+            <div>
+                <h1>VK Feed Pulse</h1>
+                <span class="status-badge">● Live Server</span>
+            </div>
         </div>
     </div>
 
-    <div class="input-group">
-        <label for="groupInput">Ссылка или короткое имя группы VK:</label>
-        <input type="text" id="groupInput" placeholder="например: durov или vk.com/ria">
-        <button id="addBtn" onclick="sendGroup()">Добавить в парсер</button>
+    <div class="input-box">
+        <input type="text" id="groupInput" placeholder="Имя группы или ссылка...">
+        <button class="btn-add" id="addBtn" onclick="sendGroup()">Добавить</button>
     </div>
 
     <div id="statusMessage" class="message"></div>
 
-    <div class="groups-section">
-        <div class="groups-title">Отслеживаемые паблики:</div>
-        <ul id="groupsList" class="groups-list">
-            <li class="group-tag">Загрузка...</li>
-        </ul>
+    <div class="groups-header">
+        <span>Отслеживаемые паблики</span>
+        <span id="groupCount">0</span>
     </div>
+
+    <ul id="groupsList" class="groups-list">
+        <li style="color: #6b7280; font-size: 0.85rem;">Загрузка списка...</li>
+    </ul>
 </div>
 
 <script>
-    // Ваш рабочий URL на Render
     const SERVER_URL = "https://vk-parser-xhkd.onrender.com/api/groups";
 
-    // Автоматическая загрузка текущего списка при старте страницы
     async function loadCurrentGroups() {
         try {
             const response = await fetch(SERVER_URL);
@@ -203,36 +214,32 @@
                 renderGroups(data.groups);
             }
         } catch (err) {
-            console.error("Ошибка подключения к серверу Render:", err);
-            document.getElementById("groupsList").innerHTML = '<li class="group-tag" style="color: #f87171;">Ошибка сети</li>';
+            document.getElementById("groupsList").innerHTML = '<li style="color: #f87171; font-size: 0.85rem;"> Ошибка сети с Render</li>';
         }
     }
 
-    // Отображение тегов с группами
     function renderGroups(groups) {
         const listEl = document.getElementById("groupsList");
+        document.getElementById("groupCount").innerText = groups ? groups.length : 0;
+
         if (!groups || groups.length === 0) {
-            listEl.innerHTML = '<li class="group-tag">Список пуст</li>';
+            listEl.innerHTML = '<li style="color: #6b7280; font-size: 0.85rem;">Список пуст</li>';
             return;
         }
-        listEl.innerHTML = groups.map(g => `<li class="group-tag">vk.com/${g}</li>`).join('');
+
+        listEl.innerHTML = groups.map(g => `
+            <li class="group-item">
+                <a class="group-link" href="https://vk.com/${g}" target="_blank">vk.com/${g}</a>
+                <button class="btn-del" onclick="deleteGroup('${g}')" title="Удалить">×</button>
+            </li>
+        `).join('');
     }
 
-    // Отправка новой группы
     async function sendGroup() {
         const input = document.getElementById("groupInput");
-        const btn = document.getElementById("addBtn");
-        const msg = document.getElementById("statusMessage");
         const groupValue = input.value.trim();
 
-        if (!groupValue) {
-            showMessage("Введите имя или ссылку группы", "error");
-            return;
-        }
-
-        btn.disabled = true;
-        btn.innerText = "Отправка...";
-        msg.className = "message";
+        if (!groupValue) return;
 
         try {
             const response = await fetch(SERVER_URL, {
@@ -242,20 +249,33 @@
             });
 
             const result = await response.json();
-
             if (response.ok && result.status === "ok") {
-                showMessage("Группа успешно добавлена!", "success");
                 input.value = "";
                 renderGroups(result.groups);
+                showMessage("Паблик добавлен!", "success");
             } else {
-                showMessage("Группа уже есть в списке или неверный запрос", "error");
+                showMessage("Уже есть в списке", "error");
             }
         } catch (err) {
-            showMessage("Ошибка связи с сервером Render", "error");
-            console.error(err);
-        } finally {
-            btn.disabled = false;
-            btn.innerText = "Добавить в парсер";
+            showMessage("Ошибка отправки", "error");
+        }
+    }
+
+    async function deleteGroup(groupName) {
+        try {
+            const response = await fetch(SERVER_URL, {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ group: groupName })
+            });
+
+            const result = await response.json();
+            if (response.ok && result.status === "deleted") {
+                renderGroups(result.groups);
+                showMessage("Паблик удалён", "success");
+            }
+        } catch (err) {
+            showMessage("Ошибка удаления", "error");
         }
     }
 
@@ -263,9 +283,9 @@
         const msg = document.getElementById("statusMessage");
         msg.innerText = text;
         msg.className = `message ${type}`;
+        setTimeout(() => { msg.className = "message"; }, 3000);
     }
 
-    // Запускаем получение списка при загрузке
     loadCurrentGroups();
 </script>
 
