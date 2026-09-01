@@ -1,62 +1,116 @@
+
 import os
 import time
+import json
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import requests
 
-# 1. Мини-веб-сервер для Render с поддержкой GET и HEAD
+GROUPS_FILE = "groups.json"
+
+# Загрузка и сохранение списка групп
+def load_groups():
+    if os.path.exists(GROUPS_FILE):
+        try:
+            with open(GROUPS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return ["durov", "ria", "kinopoisk"]
+
+def save_groups(groups):
+    with open(GROUPS_FILE, "w", encoding="utf-8") as f:
+        json.dump(groups, f, ensure_ascii=False, indent=2)
+
+GROUPS = load_groups()
+
+# Веб-сервер с обработкой добавления групп из VK Feed Pulse
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
-    def respond_ok(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'text/html; charset=utf-8')
+    def _set_headers(self, status=200):
+        self.send_response(status)
+        self.send_header('Content-type', 'application/json; charset=utf-8')
+        # Разрешаем CORS-запросы из браузера
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
+    def do_OPTIONS(self):
+        self._set_headers(200)
+
     def do_GET(self):
-        self.respond_ok()
-        self.wfile.write('Бот VK Parser успешно работает 24/7!'.encode('utf-8'))
+        if self.path == "/api/groups":
+            self._set_headers(200)
+            self.wfile.write(json.dumps({"groups": GROUPS}).encode('utf-8'))
+        else:
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write('Бот VK Parser и VK Feed Pulse работают 24/7!'.encode('utf-8'))
 
     def do_HEAD(self):
-        self.respond_ok()
+        self.send_response(200)
+        self.end_headers()
+
+    def do_POST(self):
+        global GROUPS
+        if self.path == "/api/groups":
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode('utf-8'))
+                new_group = data.get("group", "").strip().lower()
+                
+                # Очищаем от ссылок, если вставили полное URL
+                if "vk.com/" in new_group:
+                    new_group = new_group.split("vk.com/")[-1].strip("/")
+
+                if new_group and new_group not in GROUPS:
+                    GROUPS.append(new_group)
+                    save_groups(GROUPS)
+                    print(f"Добавлена новая группа: {new_group}", flush=True)
+                    self._set_headers(200)
+                    self.wfile.write(json.dumps({"status": "ok", "groups": GROUPS}).encode('utf-8'))
+                else:
+                    self._set_headers(400)
+                    self.wfile.write(json.dumps({"status": "exists_or_empty"}).encode('utf-8'))
+            except Exception as e:
+                self._set_headers(500)
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
-    print(f"Веб-сервер запущен на порту {port}", flush=True)
+    print(f"Сервер запущен на порту {port}", flush=True)
     server.serve_forever()
 
-# Запускаем веб-сервер в отдельном потоке
 threading.Thread(target=run_web_server, daemon=True).start()
 
-# 2. Основной код парсера VK
+# Переменные окружения
 VK_TOKEN = os.environ.get("VK_TOKEN")
 TG_TOKEN = os.environ.get("TG_TOKEN")
 TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
-
-GROUPS = ["durov", "ria", "kinopoisk"]  # Короткие имена групп VK
-CHECK_INTERVAL = 300  # Проверка каждые 5 минут
+CHECK_INTERVAL = 300
 
 def send_telegram(text):
     if not TG_TOKEN or not TG_CHAT_ID:
-        print("Ошибка: TG_TOKEN или TG_CHAT_ID не заданы в Environment!", flush=True)
         return
     url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
     payload = {"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "HTML"}
     try:
-        res = requests.post(url, json=payload)
-        print(f"Ответ Telegram API: {res.status_code} - {res.text}", flush=True)
+        requests.post(url, json=payload)
     except Exception as e:
         print(f"Ошибка отправки в TG: {e}", flush=True)
 
-# Сообщение о старте
-send_telegram("🚀 Парсер VK успешно запущен и работает на Render!")
+send_telegram("🚀 Сервер обновлён! Поддержка VK Feed Pulse подключена.")
 
 last_seen_ids = {}
 
 while True:
     try:
-        for group in GROUPS:
+        current_groups = list(GROUPS)
+        for group in current_groups:
             if not VK_TOKEN:
-                print("Ошибка: VK_TOKEN не задан в Environment!", flush=True)
                 break
                 
             url = f"https://api.vk.com/method/wall.get?domain={group}&count=2&access_token={VK_TOKEN}&v=5.131"
