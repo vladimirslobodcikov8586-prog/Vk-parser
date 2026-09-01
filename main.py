@@ -1,4 +1,3 @@
-
 import os
 import time
 import threading
@@ -22,7 +21,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 def run_web_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
-    print(f"Веб-сервер запущен на порту {port}")
+    print(f"Веб-сервер запущен на порту {port}", flush=True)
     server.serve_forever()
 
 # Запускаем веб-сервер в отдельном потоке
@@ -38,15 +37,15 @@ CHECK_INTERVAL = 300  # Проверка каждые 5 минут
 
 def send_telegram(text):
     if not TG_TOKEN or not TG_CHAT_ID:
-        print("Ошибка: TG_TOKEN или TG_CHAT_ID не заданы в Environment!")
+        print("Ошибка: TG_TOKEN или TG_CHAT_ID не заданы в Environment!", flush=True)
         return
     url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
     payload = {"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "HTML"}
     try:
         res = requests.post(url, json=payload)
-        print(f"Ответ Telegram API: {res.status_code} - {res.text}")
+        print(f"Ответ Telegram API: {res.status_code} - {res.text}", flush=True)
     except Exception as e:
-        print(f"Ошибка отправки в TG: {e}")
+        print(f"Ошибка отправки в TG: {e}", flush=True)
 
 # Сообщение о старте
 send_telegram("🚀 Парсер VK успешно запущен и работает на Render!")
@@ -57,7 +56,7 @@ while True:
     try:
         for group in GROUPS:
             if not VK_TOKEN:
-                print("Ошибка: VK_TOKEN не задан в Environment!")
+                print("Ошибка: VK_TOKEN не задан в Environment!", flush=True)
                 break
                 
             url = f"https://api.vk.com/method/wall.get?domain={group}&count=2&access_token={VK_TOKEN}&v=5.131"
@@ -78,6 +77,6 @@ while True:
                         msg = f"🔔 <b>Новый пост в {group}!</b>\n\n{text[:500]}...\n\n🔗 <a href='{post_url}'>Читать в VK</a>"
                         send_telegram(msg)
     except Exception as e:
-        print(f"Ошибка при парсинге: {e}")
+        print(f"Ошибка при парсинге: {e}", flush=True)
         
     time.sleep(CHECK_INTERVAL)
