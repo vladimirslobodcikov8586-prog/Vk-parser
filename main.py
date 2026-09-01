@@ -6,20 +6,39 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import requests
 
-GROUPS_FILE = "groups.json"
+# Загружаем ключи из переменных окружения Render
+JSONBIN_BIN_ID = os.environ.get("JSONBIN_BIN_ID")
+JSONBIN_API_KEY = os.environ.get("JSONBIN_API_KEY")
+
+DEFAULT_GROUPS = ["durov", "ria", "kinopoisk"]
 
 def load_groups():
-    if os.path.exists(GROUPS_FILE):
-        try:
-            with open(GROUPS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return ["durov", "ria", "kinopoisk"]
+    if not JSONBIN_BIN_ID or not JSONBIN_API_KEY:
+        return DEFAULT_GROUPS
+    
+    url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}/latest"
+    headers = {"X-Master-Key": JSONBIN_API_KEY}
+    try:
+        res = requests.get(url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            return res.json().get("record", DEFAULT_GROUPS)
+    except Exception as e:
+        print("Ошибка загрузки из JSONBin:", e)
+    return DEFAULT_GROUPS
 
 def save_groups(groups):
-    with open(GROUPS_FILE, "w", encoding="utf-8") as f:
-        json.dump(groups, f, ensure_ascii=False, indent=2)
+    if not JSONBIN_BIN_ID or not JSONBIN_API_KEY:
+        return
+    
+    url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}"
+    headers = {
+        "Content-Type": "application/json",
+        "X-Master-Key": JSONBIN_API_KEY
+    }
+    try:
+        requests.put(url, headers=headers, json=groups, timeout=5)
+    except Exception as e:
+        print("Ошибка сохранения в JSONBin:", e)
 
 GROUPS = load_groups()
 
