@@ -5,6 +5,7 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import requests
 
+# Принудительно отключаем буферизацию Python
 os.environ["PYTHONUNBUFFERED"] = "1"
 
 JSONBIN_BIN_ID = os.environ.get("JSONBIN_BIN_ID")
@@ -13,19 +14,27 @@ JSONBIN_API_KEY = os.environ.get("JSONBIN_API_KEY")
 DEFAULT_GROUPS = ["durov", "ria", "kinopoisk"]
 
 def load_groups():
+    print("=== ПРОВЕРКА КЛЮЧЕЙ ===")
+    print("BIN_ID:", JSONBIN_BIN_ID)
+    print("API_KEY:", "Задан" if JSONBIN_API_KEY else "ОТСУТСТВУЕТ")
+    
     if not JSONBIN_BIN_ID or not JSONBIN_API_KEY:
+        print("⚠️ Ключи JSONBin не найдены. Загружаем дефолт.")
         return list(DEFAULT_GROUPS)
     
     url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}/latest"
     headers = {"X-Master-Key": JSONBIN_API_KEY}
     try:
         res = requests.get(url, headers=headers, timeout=7)
+        print(f"Запрос к JSONBin при запуске. Статус: {res.status_code}")
         if res.status_code == 200:
             data = res.json()
             record = data.get("record")
             if isinstance(record, list):
+                print("Загружен список групп:", record)
                 return record
             elif isinstance(record, dict) and "groups" in record:
+                print("Загружен список групп (dict):", record["groups"])
                 return record["groups"]
     except Exception as e:
         print("Ошибка загрузки групп:", e)
@@ -42,7 +51,8 @@ def save_groups(groups):
         "X-Master-Key": JSONBIN_API_KEY
     }
     try:
-        requests.put(url, headers=headers, json=groups, timeout=7)
+        res = requests.put(url, headers=headers, json=groups, timeout=7)
+        print(f"Результат сохранения в JSONBin: HTTP {res.status_code}")
     except Exception as e:
         print("Ошибка сохранения групп:", e)
 
@@ -135,16 +145,13 @@ def send_telegram_post(text, photos, video_links):
     if not TG_TOKEN or not TG_CHAT_ID:
         return
 
-    # Добавляем ссылки на видео в текст поста, если они есть
     if video_links:
         text += "\n\n🎬 <b>Видео в посте:</b>\n" + "\n".join(video_links)
 
-    # Ограничение Telegram на длину подписи под фото — 1024 символа
     caption = text[:1000] + ("..." if len(text) > 1000 else "")
 
     try:
         if len(photos) == 1:
-            # Одно фото с подписью
             url = f"https://api.telegram.org/bot{TG_TOKEN}/sendPhoto"
             payload = {
                 "chat_id": TG_CHAT_ID,
@@ -155,7 +162,6 @@ def send_telegram_post(text, photos, video_links):
             requests.post(url, json=payload, timeout=10)
         
         elif len(photos) > 1:
-            # Альбом фотографий (до 10 штук)
             url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMediaGroup"
             media = []
             for idx, photo_url in enumerate(photos[:10]):
@@ -169,7 +175,6 @@ def send_telegram_post(text, photos, video_links):
             requests.post(url, json=payload, timeout=10)
         
         else:
-            # Обычный текст без фото
             url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
             payload = {
                 "chat_id": TG_CHAT_ID,
@@ -189,10 +194,8 @@ def extract_attachments(attachments_data):
         att_type = att.get("type")
         
         if att_type == "photo":
-            # Выбираем максимальное качество изображения
             sizes = att["photo"].get("sizes", [])
             if sizes:
-                # Сортируем по ширине/высоте
                 best_size = max(sizes, key=lambda s: s.get("width", 0) * s.get("height", 0))
                 photos.append(best_size["url"])
                 
@@ -205,7 +208,6 @@ def extract_attachments(attachments_data):
                 v_url = f"https://vk.com/video{owner_id}_{video_id}"
                 video_links.append(f"• <a href='{v_url}'>{title}</a>")
                 
-                # Если у видео есть обложка и пока нет обычных фото, возьмем её
                 image_sizes = video_info.get("image", [])
                 if image_sizes and not photos:
                     best_img = max(image_sizes, key=lambda i: i.get("width", 0))
