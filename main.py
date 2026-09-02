@@ -5,7 +5,6 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import requests
 
-# Принудительно отключаем буферизацию Python
 os.environ["PYTHONUNBUFFERED"] = "1"
 
 JSONBIN_BIN_ID = os.environ.get("JSONBIN_BIN_ID")
@@ -134,12 +133,24 @@ def run_web_server():
     server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
+def keep_alive():
+    """Самопинг каждые 10 минут, чтобы Render не усыплял сервис"""
+    my_url = "https://vk-parser-xhkd.onrender.com"
+    while True:
+        time.sleep(600)  # каждые 10 минут
+        try:
+            requests.get(my_url, timeout=10)
+            print("Self-ping отправлен успешно")
+        except Exception as e:
+            print("Ошибка self-ping:", e)
+
 threading.Thread(target=run_web_server, daemon=True).start()
+threading.Thread(target=keep_alive, daemon=True).start()
 
 VK_TOKEN = os.environ.get("VK_TOKEN")
 TG_TOKEN = os.environ.get("TG_TOKEN")
 TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
-CHECK_INTERVAL = 300
+CHECK_INTERVAL = 300  # Проверка VK каждые 5 минут
 
 def send_telegram_post(text, photos, video_links):
     if not TG_TOKEN or not TG_CHAT_ID:
@@ -220,21 +231,31 @@ last_seen_ids = {}
 while True:
     try:
         current_groups = list(GROUPS)
+        print(f"Проверка постов для групп: {current_groups}")
         for group in current_groups:
             if not VK_TOKEN:
+                print("⚠️ Переменная VK_TOKEN не задана!")
                 break
                 
             url = f"https://api.vk.com/method/wall.get?domain={group}&count=2&access_token={VK_TOKEN}&v=5.131"
             res = requests.get(url, timeout=10).json()
             
+            if "error" in res:
+                print(f"Ошибка VK API для {group}: {res['error'].get('error_msg')}")
+                continue
+
             if "response" in res and "items" in res["response"]:
                 posts = res["response"]["items"]
                 for post in posts:
                     post_id = post["id"]
+                    
+                    # При первом старте запоминаем последний ID постов без рассылки
                     if group not in last_seen_ids:
                         last_seen_ids[group] = post_id
+                        print(f"Запомнили начальный ID для {group}: {post_id}")
                         continue
                     
+                    # Если появился действительно новый пост
                     if post_id > last_seen_ids[group]:
                         last_seen_ids[group] = post_id
                         
@@ -246,6 +267,7 @@ while True:
                         attachments = post.get("attachments", [])
                         photos, video_links = extract_attachments(attachments)
                         
+                        print(f"Отправка нового поста из {group} (ID {post_id})")
                         send_telegram_post(main_text, photos, video_links)
     except Exception as e:
         print("Ошибка в цикле парсера:", e)
