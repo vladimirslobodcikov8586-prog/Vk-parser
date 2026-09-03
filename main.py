@@ -15,7 +15,6 @@ JSONBIN_API_KEY = os.getenv("JSONBIN_API_KEY")
 RENDER_URL = os.getenv("RENDER_URL", "https://vk-parser-xhkd.onrender.com")
 
 CHECK_INTERVAL = 300  # 5 минут (300 секунд)
-STATUS_INTERVAL_CYCLES = 6  # Каждые 6 циклов (6 * 5 мин = 30 минут)
 
 DEFAULT_GROUPS = ["kinopoisk", "vtorchermetekb", "barakholka_group_66"]
 last_seen_ids = {}
@@ -171,22 +170,10 @@ def check_vk_posts():
 
 # ================= ФОНОВЫЕ ПОТОКИ =================
 def worker_loop():
-    check_count = 0
     print("Фоновый поток успешно запущен.")
-
     while True:
         try:
             check_vk_posts()
-            check_count += 1
-
-            if check_count >= STATUS_INTERVAL_CYCLES:
-                status_text = (
-                    "🟢 <b>Бот работает штатно!</b>\n"
-                    "Проверка пабликов проходит каждые 5 минут, новых постов пока нет."
-                )
-                send_telegram_message(status_text)
-                print("Отправлено статусное сообщение (30 минут)")
-                check_count = 0
         except Exception as e:
             print(f"Ошибка во внутреннем цикле worker_loop: {e}")
 
