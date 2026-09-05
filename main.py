@@ -2,7 +2,7 @@ import os
 import time
 import threading
 import requests
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template_string
 
 app = Flask(__name__)
 
@@ -14,10 +14,64 @@ JSONBIN_BIN_ID = os.getenv("JSONBIN_BIN_ID")
 JSONBIN_API_KEY = os.getenv("JSONBIN_API_KEY")
 RENDER_URL = os.getenv("RENDER_URL", "https://vk-parser-xhkd.onrender.com")
 
-CHECK_INTERVAL = 300  # 5 минут (300 секунд)
+CHECK_INTERVAL = 300  # 5 минут
 
 DEFAULT_GROUPS = ["kinopoisk", "vtorchermetekb", "barakholka_group_66"]
 last_seen_ids = {}
+
+# HTML-шаблон для встроенной админки
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление группами ВК</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1e1e1e; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        h1 { font-size: 22px; color: #fff; margin-top: 0; text-align: center; }
+        .form-group { display: flex; gap: 10px; margin-bottom: 25px; }
+        input[type="text"] { flex: 1; padding: 12px 15px; border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: #fff; font-size: 15px; outline: none; }
+        input[type="text"]:focus { border-color: #0088cc; }
+        button { padding: 12px 20px; border-radius: 8px; border: none; background: #0088cc; color: white; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #006699; }
+        .btn-delete { background: #e53935; padding: 6px 12px; font-size: 13px; }
+        .btn-delete:hover { background: #c62828; }
+        ul { list-style: none; padding: 0; margin: 0; }
+        li { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #2a2a2a; border-radius: 8px; margin-bottom: 10px; }
+        .group-name { font-weight: 500; font-size: 16px; color: #64b5f6; text-decoration: none; }
+        .group-name:hover { text-decoration: underline; }
+        .status { text-align: center; font-size: 13px; color: #888; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚙️ Панель управления VK Парсером</h1>
+        
+        <form action="/add" method="POST" class="form-group">
+            <input type="text" name="group" placeholder="Введите ID или ссылку на группу ВК" required>
+            <button type="submit">Добавить</button>
+        </form>
+
+        <h3>Список отслеживаемых групп:</h3>
+        <ul>
+            {% for group in groups %}
+            <li>
+                <a href="https://vk.com/{{ group }}" target="_blank" class="group-name">vk.com/{{ group }}</a>
+                <form action="/delete" method="POST" style="margin:0;">
+                    <input type="hidden" name="group" value="{{ group }}">
+                    <button type="submit" class="btn-delete">Удалить</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <div class="status">Бот работает в фоновом режиме</div>
+    </div>
+</body>
+</html>
+"""
 
 # ================= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =================
 def send_telegram_message(text, photos=None, video_links=None):
@@ -102,6 +156,14 @@ def save_groups(groups_list):
         print(f"Ошибка сохранения групп в JSONBin: {e}")
         return False
 
+def clean_group_name(raw_input):
+    group = raw_input.strip().lower()
+    if "vk.com/" in group:
+        group = group.split("vk.com/")[-1].strip("/")
+    if "?" in group:
+        group = group.split("?")[0]
+    return group
+
 def extract_attachments(attachments_data):
     photos = []
     video_links = []
@@ -176,7 +238,6 @@ def worker_loop():
             check_vk_posts()
         except Exception as e:
             print(f"Ошибка во внутреннем цикле worker_loop: {e}")
-
         time.sleep(CHECK_INTERVAL)
 
 def self_ping_loop():
@@ -188,32 +249,37 @@ def self_ping_loop():
         except Exception as e:
             print(f"Ошибка Self-ping: {e}")
 
-# ================= FLASK API =================
+# ================= FLASK ВЕБ-ИНТЕРФЕЙС И API =================
 @app.route('/', methods=['GET', 'HEAD'])
 def index():
-    return "VK Parser Bot is active!", 200
-
-@app.route('/api/groups', methods=['GET'])
-def api_get_groups():
-    return jsonify({"groups": get_groups()}), 200
-
-@app.route('/api/groups', methods=['POST'])
-def api_add_group():
-    data = request.get_json() or {}
-    group = data.get("group", "").strip().lower()
-    if "vk.com/" in group:
-        group = group.split("vk.com/")[-1].strip("/")
-
-    if not group:
-        return jsonify({"error": "No group provided"}), 400
-
+    if request.method == 'HEAD':
+        return "", 200
     groups = get_groups()
-    if group not in groups:
-        groups.append(group)
-        if save_groups(groups):
-            return jsonify({"status": "added", "groups": groups}), 200
-        return jsonify({"error": "Failed to save"}), 500
-    return jsonify({"status": "already exists", "groups": groups}), 200
+    return render_template_string(HTML_TEMPLATE, groups=groups)
+
+@app.route('/add', methods=['POST'])
+def add_group():
+    raw_group = request.form.get('group', '')
+    group = clean_group_name(raw_group)
+
+    if group:
+        groups = get_groups()
+        if group not in groups:
+            groups.append(group)
+            save_groups(groups)
+    return f"<script>window.location.href='/';</script>"
+
+@app.route('/delete', methods=['POST'])
+def delete_group():
+    raw_group = request.form.get('group', '')
+    group = clean_group_name(raw_group)
+
+    if group:
+        groups = get_groups()
+        if group in groups:
+            groups.remove(group)
+            save_groups(groups)
+    return f"<script>window.location.href='/';</script>"
 
 # ================= ТОЧКА ВХОДА =================
 if __name__ == "__main__":
